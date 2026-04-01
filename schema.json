@@ -1,0 +1,20 @@
+{
+  "emoji_react_enabled": {
+    "name": "启用贴表情",
+    "type": "switch",
+    "default": true,
+    "hint": "启用后，AI可以自主对消息回应表情"
+  },
+  "send_likes_enabled": {
+    "name": "启用资料卡点赞",
+    "type": "switch",
+    "default": false,
+    "hint": "启用后，AI可以给用户的资料卡点赞"
+  },
+  "emoji_react_prompt": {
+    "name": "贴表情说明",
+    "type": "markdown",
+    "default": "### 贴表情工具使用说明\n你需要在聊天中自然使用贴表情功能",
+    "hint": "对AI使用贴表情功能的说明"
+  }
+}
