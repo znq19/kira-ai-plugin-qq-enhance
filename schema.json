@@ -11,10 +11,22 @@
     "default": false,
     "hint": "启用后，AI可以给用户的资料卡点赞"
   },
-  "emoji_react_prompt": {
-    "name": "贴表情说明",
+  "delete_msg_enabled": {
+    "name": "启用撤回消息功能",
+    "type": "switch",
+    "default": true,
+    "hint": "启用后，AI可以撤回消息"
+  },
+  "group_ban_enabled": {
+    "name": "启用群禁言功能",
+    "type": "switch",
+    "default": true,
+    "hint": "启用后，AI可以禁言群成员"
+  },
+  "qq_enhance_prompt": {
+    "name": "工具说明",
     "type": "markdown",
     "default": "### 贴表情工具使用说明\n你需要在聊天中自然使用贴表情功能",
-    "hint": "对AI使用贴表情功能的说明"
+    "hint": "对AI使用QQ增强相关功能的说明"
   }
 }

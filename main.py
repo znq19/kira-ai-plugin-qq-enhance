@@ -77,12 +77,67 @@ class SendQQLikesTool(BaseTool):
             await asyncio.sleep(0.1)
 
 
+class DeleteMsgTool(BaseTool):
+    name = "delete_qq_msg"
+    description = "撤回QQ消息"
+    parameters = {
+        "type": "object",
+        "properties": {
+            "message_id": {"type": "string", "description": "要撤回的QQ消息ID"},
+        },
+        "required": ["message_id"]
+    }
+
+    def __init__(self, ctx: PluginContext):
+        super().__init__(ctx=ctx)
+
+    async def execute(self, event: KiraMessageBatchEvent, *args, message_id: str, **kwargs) -> str:
+        ada_name = event.session.adapter_name
+        ada = self.ctx.adapter_mgr.get_adapter(ada_name)
+        client = ada.get_client()
+        params = {
+            "message_id": message_id,
+        }
+        res = await client.send_action("delete_msg", params)
+        return res
+
+
+class GroupBanTool(BaseTool):
+    name = "set_qq_group_ban"
+    description = "禁言QQ群中的成员"
+    parameters = {
+        "type": "object",
+        "properties": {
+            "user_id": {"type": "string", "description": "要禁言的成员的QQ号"},
+            "duration": {"type": "string", "description": "禁言时长（秒），默认600秒（10分钟），设为0秒即为解除禁言"},
+        },
+        "required": ["user_id", "duration"]
+    }
+
+    def __init__(self, ctx: PluginContext):
+        super().__init__(ctx=ctx)
+
+    async def execute(self, event: KiraMessageBatchEvent, *args, user_id: str, duration: str, **kwargs) -> str:
+        ada_name = event.session.adapter_name
+        ada = self.ctx.adapter_mgr.get_adapter(ada_name)
+        client = ada.get_client()
+        params = {
+            "group_id": event.session.sid,
+            "user_id": user_id,
+            "duration": duration or 600
+        }
+        res = await client.send_action("set_group_ban", params)
+        return res
+
+
 class QQEnhancePlugin(BasePlugin):
     def __init__(self, ctx, cfg: dict):
         super().__init__(ctx, cfg)
         self.emoji_react_enabled = self.plugin_cfg.get("emoji_react_enabled", True)
         self.send_likes_enabled = self.plugin_cfg.get("send_likes_enabled", False)
-        self.emoji_react_prompt = self.plugin_cfg.get("emoji_react_prompt", "")
+        self.delete_msg_enabled = self.plugin_cfg.get("delete_msg_enabled", True)
+        self.group_ban_enabled = self.plugin_cfg.get("group_ban_enabled", True)
+        self.qq_enhance_prompt = self.plugin_cfg.get("qq_enhance_prompt", "")
     
     async def initialize(self):
         pass
@@ -100,8 +155,14 @@ class QQEnhancePlugin(BasePlugin):
             req.tool_set.add(SetEmojiTool(ctx=self.ctx))
             for p in req.system_prompt:
                 if p.name == "tools":
-                    p.content += f"\n{self.emoji_react_prompt}"
+                    p.content += f"\n{self.qq_enhance_prompt}"
                     break
 
         if self.send_likes_enabled:
             req.tool_set.add(SendQQLikesTool(ctx=self.ctx))
+
+        if self.delete_msg_enabled:
+            req.tool_set.add(DeleteMsgTool(ctx=self.ctx))
+
+        if self.group_ban_enabled and event.session.session_type == "gm":
+            req.tool_set.add(GroupBanTool(ctx=self.ctx))
