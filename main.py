@@ -4,7 +4,7 @@ import random
 from core.plugin import BasePlugin, PluginContext, logger, on, Priority, register
 from core.chat.message_utils import KiraMessageBatchEvent, KiraMessageEvent
 from core.chat.message_elements import Text, Sticker, Reply
-from core.chat import MessageChain
+from core.chat import MessageChain, Session
 from core.provider import LLMRequest, LLMResponse
 from core.utils.tool_utils import BaseTool
 
@@ -146,7 +146,7 @@ class QQEnhancePlugin(BasePlugin):
         self.qq_enhance_prompt = self.plugin_cfg.get("qq_enhance_prompt", "")
 
         # ----- Sticker Control 配置 -----
-        self.sticker_control_enabled = self.plugin_cfg.get("sticker_control_enabled", True)
+        self.sticker_control_enabled = self.plugin_cfg.get("sticker_control_enabled", False)
         self.sticker_probability = float(self.plugin_cfg.get("sticker_probability", 0.5))
         self.random_position = bool(self.plugin_cfg.get("random_position", True))
 
@@ -177,7 +177,7 @@ class QQEnhancePlugin(BasePlugin):
         self._loop_tasks.clear()
         self._typing_running.clear()
 
-    # ---------- 原有功能：注入工具 ----------
+    # ---------- 注入工具 ----------
     @on.llm_request()
     async def inject_qq_enhance_tools(self, event: KiraMessageBatchEvent, req: LLMRequest, *_):
         platform = event.adapter.platform
@@ -212,8 +212,8 @@ class QQEnhancePlugin(BasePlugin):
         # 1. 过滤掉只有 Reply 的消息链
         filtered_chains = []
         for chain in message_chains:
-            if len(chain.message_list) == 1 and isinstance(chain.message_list[0], Reply):
-                logger.debug(f"丢弃只有引用的消息块: {chain.message_list[0]}")
+            if len(chain) == 1 and isinstance(chain[0], Reply):
+                logger.debug(f"丢弃只有引用的消息块: {chain[0]}")
                 continue
             filtered_chains.append(chain)
         message_chains[:] = filtered_chains
@@ -262,22 +262,17 @@ class QQEnhancePlugin(BasePlugin):
         logger.debug(f"Sticker 处理完成，消息块数量: {len(message_chains)}")
 
     # ---------- Typing Indicator 功能 ----------
-    async def _send_typing(self, session: str):
+    async def _send_typing(self, session: Session):
         if not self.typing_indicator_enabled:
             return
-        parts = session.split(":")
-        if len(parts) != 3:
-            logger.error(f"Invalid session id: {session}")
-            return
 
-        adapter_name, chat_type, pid = parts
         # 群聊不发送
-        if chat_type == "gm":
+        if session.session_type == "gm":
             return
 
-        adapter = self.ctx.adapter_mgr.get_adapter(adapter_name)
+        adapter = self.ctx.adapter_mgr.get_adapter(session.adapter_name)
         if not adapter:
-            logger.error(f"Adapter '{adapter_name}' not found")
+            logger.error(f"Adapter '{session.adapter_name}' not found")
             return
 
         client = adapter.get_client()
@@ -285,13 +280,13 @@ class QQEnhancePlugin(BasePlugin):
             logger.error("Adapter client not available")
             return
 
-        params = {"user_id": int(pid), "event_type": 1}
+        params = {"user_id": int(session.session_id), "event_type": 1}
         action = "set_input_status"
 
         if hasattr(client, 'send_action') and callable(client.send_action):
             try:
                 await client.send_action(action, params)
-                logger.debug(f"Typing sent to {session}")
+                logger.debug(f"Typing sent to {session.sid}")
                 return
             except Exception as e:
                 logger.debug(f"send_action failed: {e}")
@@ -302,7 +297,7 @@ class QQEnhancePlugin(BasePlugin):
             payload = json.dumps({"action": action, "params": params})
             try:
                 await ws.send(payload)
-                logger.debug(f"Typing sent via WebSocket to {session}")
+                logger.debug(f"Typing sent via WebSocket to {session.sid}")
                 return
             except Exception as e:
                 logger.debug(f"WebSocket send failed: {e}")
@@ -314,37 +309,40 @@ class QQEnhancePlugin(BasePlugin):
                 payload = json.dumps({"action": action, "params": params})
                 try:
                     await ws_attr.send(payload)
-                    logger.debug(f"Typing sent via {attr} to {session}")
+                    logger.debug(f"Typing sent via {attr} to {session.sid}")
                     return
                 except Exception:
                     continue
 
         logger.error("No working method to send typing indicator")
 
-    async def _delayed_send_typing(self, session: str, delay: float):
+    async def _delayed_send_typing(self, session_obj: Session, delay: float):
+        session = session_obj.sid
         try:
             await asyncio.sleep(delay)
-            await self._send_typing(session)
+            await self._send_typing(session_obj)
             if session not in self._loop_tasks or self._loop_tasks[session].done():
                 self._typing_running[session] = True
-                task = asyncio.create_task(self._typing_loop(session))
+                task = asyncio.create_task(self._typing_loop(session_obj))
                 self._loop_tasks[session] = task
         except asyncio.CancelledError:
             logger.debug(f"Typing delayed task cancelled for {session}")
 
-    async def _typing_loop(self, session: str):
+    async def _typing_loop(self, session_obj: Session):
+        session = session_obj.sid
         while self._typing_running.get(session, False):
             try:
                 await asyncio.sleep(self.typing_interval_seconds)
                 if self._typing_running.get(session, False):
-                    await self._send_typing(session)
+                    await self._send_typing(session_obj)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.warning(f"Typing loop error for {session}: {e}")
         logger.debug(f"Typing loop stopped for {session}")
 
-    def _stop_typing_loop(self, session: str):
+    def _stop_typing_loop(self, session_obj: Session):
+        session = session_obj.sid
         if session in self._typing_running:
             self._typing_running[session] = False
         if session in self._loop_tasks and not self._loop_tasks[session].done():
@@ -352,8 +350,8 @@ class QQEnhancePlugin(BasePlugin):
         self._loop_tasks.pop(session, None)
         self._typing_running.pop(session, None)
 
-    @on.im_message(priority=Priority.HIGH)
-    async def on_im_message(self, event: KiraMessageEvent):
+    @on.im_batch_message(priority=Priority.HIGH)
+    async def handle_typing_indication(self, event: KiraMessageBatchEvent):
         if not self.typing_indicator_enabled:
             return
         # 只处理私聊
@@ -361,12 +359,12 @@ class QQEnhancePlugin(BasePlugin):
             return
         sid = event.session.sid
 
-        self._stop_typing_loop(sid)
+        self._stop_typing_loop(event.session)
 
         if sid in self._delay_tasks and not self._delay_tasks[sid].done():
             self._delay_tasks[sid].cancel()
 
-        task = asyncio.create_task(self._delayed_send_typing(sid, self.typing_delay_seconds))
+        task = asyncio.create_task(self._delayed_send_typing(event.session, self.typing_delay_seconds))
         self._delay_tasks[sid] = task
         task.add_done_callback(lambda t: self._delay_tasks.pop(sid, None))
 
@@ -379,5 +377,5 @@ class QQEnhancePlugin(BasePlugin):
             return
         sid = event.sid
         if not resp.tool_calls:
-            self._stop_typing_loop(sid)
+            self._stop_typing_loop(event.session)
             logger.debug(f"Stopped typing loop for {sid} due to final response (no tool calls)")
