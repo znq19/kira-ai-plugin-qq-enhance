@@ -1,32 +1,72 @@
 {
-  "emoji_react_enabled": {
-    "name": "启用贴表情",
-    "type": "switch",
-    "default": true,
-    "hint": "启用后，AI可以自主对消息回应表情"
-  },
-  "send_likes_enabled": {
-    "name": "启用资料卡点赞",
-    "type": "switch",
-    "default": false,
-    "hint": "启用后，AI可以给用户的资料卡点赞"
-  },
-  "delete_msg_enabled": {
-    "name": "启用撤回消息功能",
-    "type": "switch",
-    "default": true,
-    "hint": "启用后，AI可以撤回消息"
-  },
-  "group_ban_enabled": {
-    "name": "启用群禁言功能",
-    "type": "switch",
-    "default": true,
-    "hint": "启用后，AI可以禁言群成员"
-  },
-  "qq_enhance_prompt": {
-    "name": "工具说明",
-    "type": "markdown",
-    "default": "### 贴表情工具使用说明\n你需要在聊天中自然使用贴表情功能",
-    "hint": "对AI使用QQ增强相关功能的说明"
-  }
+    "emoji_react_enabled": {
+        "name": "启用贴表情",
+        "type": "switch",
+        "default": true,
+        "hint": "启用后，AI可以自主对消息回应表情"
+    },
+    "send_likes_enabled": {
+        "name": "启用资料卡点赞",
+        "type": "switch",
+        "default": false,
+        "hint": "启用后，AI可以给用户的资料卡点赞"
+    },
+    "delete_msg_enabled": {
+        "name": "启用撤回消息功能",
+        "type": "switch",
+        "default": true,
+        "hint": "启用后，AI可以撤回消息"
+    },
+    "group_ban_enabled": {
+        "name": "启用群禁言功能",
+        "type": "switch",
+        "default": true,
+        "hint": "启用后，AI可以禁言群成员"
+    },
+    "qq_enhance_prompt": {
+        "name": "工具说明",
+        "type": "markdown",
+        "default": "### 贴表情工具使用说明\n你需要在聊天中自然使用贴表情功能",
+        "hint": "对AI使用QQ增强相关功能的说明"
+    },
+    "sticker_control_enabled": {
+        "name": "启用表情控制",
+        "type": "switch",
+        "default": false,
+        "hint": "启用后，控制AI发送表情的频率和位置"
+    },
+    "sticker_probability": {
+        "name": "表情保留概率",
+        "type": "float",
+        "default": 0.5,
+        "minimum": 0,
+        "maximum": 1,
+        "hint": "每个表情被保留的概率（0~1）。例如 0.3 表示30%的概率保留，70%概率删除。"
+    },
+    "random_position": {
+        "name": "随机位置",
+        "type": "switch",
+        "default": true,
+        "hint": "是否将表情随机插入到消息中间（而不是固定在最后）。"
+    },
+    "typing_indicator_enabled": {
+        "name": "启用私聊输入指示",
+        "type": "switch",
+        "default": true,
+        "hint": "启用后，在私聊中显示“正在输入...”状态"
+    },
+    "typing_delay_seconds": {
+        "name": "首次延时（秒）",
+        "type": "float",
+        "default": 2.0,
+        "minimum": 0,
+        "hint": "收到消息后延迟多少秒显示“正在输入...”。设为 0 则立即显示。"
+    },
+    "typing_interval_seconds": {
+        "name": "持续发送间隔（秒）",
+        "type": "float",
+        "default": 2.0,
+        "minimum": 0.5,
+        "hint": "首次显示后，每隔此时间重新发送一次“正在输入...”，直到回复发出。"
+    }
 }
