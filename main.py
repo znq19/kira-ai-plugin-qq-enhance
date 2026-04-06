@@ -275,6 +275,12 @@ class QQEnhancePlugin(BasePlugin):
             logger.error(f"Adapter '{session.adapter_name}' not found")
             return
 
+        # 关键修改：只处理 QQ 适配器
+        platform = getattr(adapter.info, 'platform', '')
+        if platform != 'QQ':
+            logger.debug(f"Skip typing for non-QQ adapter: {platform}")
+            return
+
         client = adapter.get_client()
         if not client:
             logger.error("Adapter client not available")
