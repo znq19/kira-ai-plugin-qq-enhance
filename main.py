@@ -195,7 +195,7 @@ class QQEnhancePlugin(BasePlugin):
         self.typing_indicator_enabled = self.plugin_cfg.get("typing_indicator_enabled", True)
         self.typing_delay_seconds = float(self.plugin_cfg.get("typing_delay_seconds", 2.0))
         self.typing_interval_seconds = float(self.plugin_cfg.get("typing_interval_seconds", 2.0))
-        self.typing_max_seconds = float(self.plugin_cfg.get("typing_max_seconds", 90.0))
+        self.typing_max_seconds = float(self.plugin_cfg.get("typing_max_seconds", 60.0))
 
         # 用于 Typing Indicator 的状态管理
         self._delay_tasks = {}
@@ -369,7 +369,7 @@ class QQEnhancePlugin(BasePlugin):
         logger.debug(f"Sticker 处理完成，消息块数量: {len(message_chains)}")
 
     # ---------- Typing Indicator 功能 ----------
-    async def _send_typing(self, session: Session):
+    async def _send_typing(self, session: Session, log: bool = True):
         if not self.typing_indicator_enabled:
             return
 
@@ -393,7 +393,8 @@ class QQEnhancePlugin(BasePlugin):
         if hasattr(client, 'send_action') and callable(client.send_action):
             try:
                 await client.send_action(action, params)
-                logger.debug(f"Typing sent to {session.sid}")
+                if log:
+                    logger.debug(f"Typing sent to {session.sid}")
                 return
             except Exception as e:
                 logger.debug(f"send_action failed: {e}")
@@ -404,7 +405,8 @@ class QQEnhancePlugin(BasePlugin):
             payload = json.dumps({"action": action, "params": params})
             try:
                 await ws.send(payload)
-                logger.debug(f"Typing sent via WebSocket to {session.sid}")
+                if log:
+                    logger.debug(f"Typing sent via WebSocket to {session.sid}")
                 return
             except Exception as e:
                 logger.debug(f"WebSocket send failed: {e}")
@@ -416,7 +418,8 @@ class QQEnhancePlugin(BasePlugin):
                 payload = json.dumps({"action": action, "params": params})
                 try:
                     await ws_attr.send(payload)
-                    logger.debug(f"Typing sent via {attr} to {session.sid}")
+                    if log:
+                        logger.debug(f"Typing sent via {attr} to {session.sid}")
                     return
                 except Exception:
                     continue
@@ -441,7 +444,7 @@ class QQEnhancePlugin(BasePlugin):
             try:
                 await asyncio.sleep(self.typing_interval_seconds)
                 if self._typing_running.get(session, False):
-                    await self._send_typing(session_obj)
+                    await self._send_typing(session_obj, log=False)
             except asyncio.CancelledError:
                 break
             except Exception as e:
